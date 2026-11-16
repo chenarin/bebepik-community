@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#f8f9fc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="베베픽 알리미">
-<link rel="manifest" href="/manifest.webmanifest?v=4">
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png?v=4">
-<link rel="icon" href="/icons/icon-192.png?v=4" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest?v=5">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png?v=5">
+<link rel="icon" href="/icons/icon-192.png?v=5" type="image/png">
 <title>베베픽 알리미</title>
 <style>
 :root{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#313b46;background:#f8f9fc;font-synthesis:none}
@@ -83,7 +83,7 @@ details p{line-height:1.8;margin:11px 0 0}
 <body>
 <main class="wrap">
 <header class="brand">
-<img src="/icons/icon-192.png?v=4" alt="개인용 나린 알리미 곰돌이" width="58" height="58">
+<img src="/icons/icon-192.png?v=5" alt="핑크 하트" width="58" height="58">
 <div><div class="eyebrow">BEBEPIK</div><h1>베베픽 알리미</h1><p>방송과 내 순번을 놓치지 않도록</p></div>
 </header>
 <section class="panel profile" aria-labelledby="profile-title">
@@ -164,7 +164,7 @@ for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])$(k).c
 function status(message,ok=false){$('status').textContent=message;$('status').className='status'+(ok?' ok':'')}
 function save(){localStorage.setItem(keys.nickname,$('nickname').value.trim());for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])localStorage.setItem(keys[k],String($(k).checked))}
 const label={live:'베베픽',plus:'베베픽 플러스'};
-async function showNotification(title,body,tag){if(localStorage.getItem('bebepik.push.device.v1'))return;if(!('Notification' in window)||Notification.permission!=='granted')return;try{const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,tag,icon:'/icons/icon-192.png?v=4'})}catch{}}
+async function showNotification(title,body,tag){if(localStorage.getItem('bebepik.push.device.v1'))return;if(!('Notification' in window)||Notification.permission!=='granted')return;try{const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,tag,icon:'/icons/icon-192.png?v=5'})}catch{}}
 function alertOnce(type,site,broadcastId,remaining){const key=once+[type,site,broadcastId,$('nickname').value.trim()].join(':');if(localStorage.getItem(key))return;localStorage.setItem(key,'1');const nm=label[site];if(type==='three')showNotification('🔔 '+nm+' 3명 전!','앞에 '+remaining+'명 남았어요.',key);if(type==='one')showNotification('⏰ '+nm+' 바로 전 차례!','앞에 1명 남았어요.',key);if(type==='turn')showNotification('🎉 '+nm+' 내 차례!','순번표를 확인해 주세요.',key)}
 async function pollSite(site,nickname){const pre=site==='live'?'live':'plus';let r;
 try{r=await fetch(API+'?site='+site+'&nickname='+encodeURIComponent(nickname),{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('서버 응답 '+r.status);const d=await r.json();$(''+pre+'Checked').textContent='마지막 확인: '+new Date().toLocaleTimeString('ko-KR');
