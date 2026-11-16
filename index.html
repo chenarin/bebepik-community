@@ -138,7 +138,7 @@ details p{line-height:1.8;margin:11px 0 0}
 <button id="testPush">시험 알림 보내기</button>
 <button id="disablePush">등록 해제</button>
 </div>
-<p class="status" id="pushStatus" role="status">푸시를 등록하면 화면을 꺼도 알림을 받을 수 있어요.</p>
+<p class="status" id="pushStatus" role="status">이미 알림을 허용했다면 시험 알림 버튼만 눌러도 연결 상태를 확인해요.</p>
 </section>
 <section class="panel">
 <details><summary>휴대폰별 알림 설정 방법</summary>
@@ -183,21 +183,60 @@ function keyBuffer(value){const bin=atob(value.replace(/-/g,'+').replace(/_/g,'/
 function deviceCredentials(){let deviceId=localStorage.getItem(PUSH_DEVICE),token=localStorage.getItem(PUSH_TOKEN);if(!deviceId||!token){deviceId=crypto.randomUUID();token=b64url(crypto.getRandomValues(new Uint8Array(32)));localStorage.setItem(PUSH_DEVICE,deviceId);localStorage.setItem(PUSH_TOKEN,token)}return {deviceId,token}}
 async function pushRequest(body){const ctrl=new AbortController(),tid=setTimeout(()=>ctrl.abort(),12000);try{const r=await fetch(PUSH_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store',signal:ctrl.signal});const data=await r.json();if(!r.ok)throw Error(data.error||'요청 실패 ('+r.status+')');return data}finally{clearTimeout(tid)}}
 function pushPrefs(){return {nickname:$('nickname').value.trim(),live:$('watchLive').checked,plus:$('watchPlus').checked,broadcast:$('broadcast').checked,three:$('three').checked,one:$('one').checked,turn:$('turn').checked}}
+function isIosBrowserNotInstalled(){
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent)&&
+    !(window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches);
+}
+function permissionMessage(){
+  if(isIosBrowserNotInstalled())return '아이폰은 일반 브라우저에서 웹 푸시를 받을 수 없어요. Safari 공유 → 홈 화면에 추가한 후, 홈 화면의 베베픽 알리미에서 눌러 주세요.';
+  if(!('Notification' in window))return '현재 브라우저에서 알림 기능을 지원하지 않아요. 갤럭시는 Chrome에서 접속해 주세요.';
+  if(Notification.permission==='denied')return '이 브라우저에서 알림이 차단돼 있어요. 주소창 왼쪽 사이트 설정 → 알림 허용 후 다시 확인해 주세요.';
+  return '알림 권한이 필요해요. 알림 허용을 누른 뒤 다시 시험해 주세요.';
+}
 async function ensurePushRegistration(askPermission){
-  const prefs=pushPrefs();if(!prefs.nickname){pushStatus('⚠️ 순번표 닉네임을 먼저 입력해 주세요.');$('nickname').focus();return}
-  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){pushStatus('이 브라우저는 백그라운드 웹 푸시를 지원하지 않아요. 갤럭시는 Chrome, 아이폰은 홈 화면에 추가한 Safari 앱에서 등록해 주세요.');return}
-  if(!window.isSecureContext){pushStatus('⚠️ HTTPS 연결이 필요해요.');return}
-  if(askPermission&&Notification.permission!=='granted'){const result=await Notification.requestPermission();if(result!=='granted'){pushStatus('⚠️ 알림 허용이 필요해요. 휴대폰 설정에서도 알림을 허용해 주세요.');return}}
-  if(Notification.permission!=='granted')return;
-  const reg=await navigator.serviceWorker.register('./sw.js');await navigator.serviceWorker.ready;
+  const prefs=pushPrefs();
+  if(!prefs.nickname){pushStatus('⚠️ 순번표 닉네임을 먼저 입력해 주세요.');$('nickname').focus();return false}
+  if(isIosBrowserNotInstalled()){pushStatus('⚠️ '+permissionMessage());return false}
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){pushStatus('⚠️ '+permissionMessage());return false}
+  if(!window.isSecureContext){pushStatus('⚠️ HTTPS 연결이 필요해요.');return false}
+  if(Notification.permission==='denied'){pushStatus('⚠️ '+permissionMessage());return false}
+  // 이미 권한을 허용한 경우에는 OS 팝업을 다시 요청하지 않는다.
+  if(Notification.permission!=='granted'&&askPermission){
+    const result=await Notification.requestPermission();
+    if(result!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
+  }
+  if(Notification.permission!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
+  const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+  await navigator.serviceWorker.ready;
   let sub=await reg.pushManager.getSubscription();
-  if(!sub){const cfg=await fetch(PUSH_API,{cache:'no-store'}).then(r=>r.json());if(!cfg.ready||!cfg.publicKey)throw Error('푸시 서버 설정을 확인할 수 없어요.');sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBuffer(cfg.publicKey)})}
-  const cred=deviceCredentials();await pushRequest({action:'register',...cred,...prefs,subscription:sub.toJSON()});
-  localStorage.setItem(keys.nickname,prefs.nickname);pushStatus('✅ 이 휴대폰에 백그라운드 푸시가 등록됐어요! 화면을 꺼도 받을 수 있어요. 💗');return true;
+  if(!sub){
+    const cfg=await fetch(PUSH_API,{cache:'no-store'}).then(r=>r.json());
+    if(!cfg.ready||!cfg.publicKey)throw Error('푸시 서버 설정을 확인할 수 없어요.');
+    sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBuffer(cfg.publicKey)});
+  }
+  const cred=deviceCredentials();
+  await pushRequest({action:'register',...cred,...prefs,subscription:sub.toJSON()});
+  localStorage.setItem(keys.nickname,prefs.nickname);
+  pushStatus('✅ 이 브라우저의 푸시 알림 연결 확인 완료! 시험 알림을 보내볼 수 있어요.');
+  return true;
 }
 async function syncExistingPush(){if(Notification.permission==='granted'&&localStorage.getItem(PUSH_DEVICE)){try{await ensurePushRegistration(false)}catch(e){pushStatus('⚠️ 알림 설정 동기화 실패: '+(e.message||e))}}}
 $('notify').onclick=async()=>{const b=$('notify');b.disabled=true;pushStatus('📲 휴대폰 푸시 등록 중…');try{await ensurePushRegistration(true)}catch(e){pushStatus('⚠️ '+(e.message||'푸시 등록 실패'))}finally{b.disabled=false}};
-$('testPush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('먼저 “화면 꺼도 푸시 받기”를 눌러 주세요.');return}const b=$('testPush');b.disabled=true;pushStatus('💌 시험 알림 전송 중…');try{await pushRequest({action:'test',...cred});pushStatus('✅ 서버에서 시험 알림을 보냈어요! 휴대폰 알림 표시를 확인해 주세요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}finally{b.disabled=false}};
+$('testPush').onclick=async()=>{
+  const b=$('testPush');b.disabled=true;
+  pushStatus('🔎 알림 허용과 현재 브라우저의 푸시 연결을 확인 중…');
+  try{
+    // 시험 알림 버튼 하나로 기존 구독 복구/신규 구독을 처리한다.
+    // 사전에 허용했다면 권한 팝업을 다시 띄우지 않는다.
+    const ready=await ensurePushRegistration(true);
+    if(!ready)return;
+    const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};
+    pushStatus('💌 시험 알림 전송 중…');
+    await pushRequest({action:'test',...cred});
+    pushStatus('✅ 시험 알림을 보냈어요! 이 브라우저의 알림 표시를 확인해 주세요.');
+  }catch(e){pushStatus('⚠️ '+(e.message||e))}
+  finally{b.disabled=false}
+};
 $('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js?v=3').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&running){clearTimeout(timer);poll()}});
