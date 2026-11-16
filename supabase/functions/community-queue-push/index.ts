@@ -127,7 +127,8 @@ Deno.serve(async(req)=>{
     const {key,db}=admin();
     if(req.method==='GET'){
       const cfg=await webpushConfig(db);
-      return json({ready:true,publicKey:cfg.publicKey,iosHomeScreenRequired:true});
+      await appServer(db); // Verify that the VAPID keys are usable before declaring readiness.
+      return json({ready:true,vapidReady:true,publicKey:cfg.publicKey,iosHomeScreenRequired:true});
     }
     if(req.method!=='POST')return json({error:'method not allowed'},405);
     const body=await req.json().catch(()=>null);if(!body||typeof body!=='object')return json({error:'invalid body'},400);
