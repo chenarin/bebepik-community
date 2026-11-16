@@ -36,5 +36,6 @@ jobs:
           git add icons/apple-touch-icon-180.png icons/icon-192.png icons/icon-512.png
           if ! git diff --cached --quiet; then
             git commit -m "design: update home-screen icons to pink heart"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
