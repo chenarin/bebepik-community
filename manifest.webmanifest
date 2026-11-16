@@ -8,10 +8,22 @@
   "theme_color": "#ffeaf2",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "https://queue.narin.day/icons/icon-192.png?v=22",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://queue.narin.day/icons/icon-512.png?v=22",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg?v=2",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
