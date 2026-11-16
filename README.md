@@ -6,7 +6,7 @@
 ## 현재 구현
 
 - GitHub Pages 정적 PWA (갤럭시 Chrome 및 iPhone Safari 홈 화면 추가).
-- 이메일 없이 기기별 무작위 UUID + 256비트 토큰을 로컬 저장. 서버에는 SHA-256 토큰 해시만 저장.
+- 기기별 무작위 UUID + 256비트 토큰을 로컬 저장. 서버에는 SHA-256 토큰 해시만 저장.
 - 사용자별 베베픽/플러스 선택, 방송 시작, 3명 전, 1명 전, 내 차례 알림 설정.
 - Web Push API + Service Worker 기반 화면이 꺼진 상태의 푸시 수신 및 본인 기기 시험 발송/해제.
 - Supabase `community-queue` 조회·검증된 순번 수신, `community-queue-push` 구독·푸시 발송.
