@@ -5,7 +5,7 @@ const validSite=s=>s==='live'||s==='plus';
 const hashPattern=/^[a-f0-9]{64}$/i;
 async function relaySecret(db){const r=await db.rpc('community_queue_relay_key');if(r.error||typeof r.data!=='string'||r.data.length<32)throw Error('queue relay not configured');return r.data;}
 async function identityHash(secret,nickname){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(canon(nickname)));return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,'0')).join('');}
-const canon=s=>String(s||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,'').trim();
+const canon=s=>String(s||'').normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF]/g,'').replace(/\s+/g,'').trim();
 const safeName=n=>typeof n==='string'&&n.trim().length>=1&&n.trim().length<=30&&!/[\x00-\x1f\x7f]/.test(n);
 const admin=()=>{const url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');if(!url||!key)throw Error('server not configured');return {key,db:createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})};};
 const same=(a,b)=>{if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0};
