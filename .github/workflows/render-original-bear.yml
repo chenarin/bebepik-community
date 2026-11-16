@@ -1,8 +1,9 @@
-name: Render exact bear SVG into installed-app PNG icons
+name: Render public heart icon into installed-app PNG icons
 on:
   push:
     paths:
       - '.github/workflows/render-original-bear.yml'
+      - 'icon.svg'
   workflow_dispatch:
 permissions:
   contents: write
@@ -11,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Convert original Narin bear SVG to iOS and Android PNG
+      - name: Convert pink heart SVG to iOS and Android PNG
         shell: bash
         run: |
           set -euo pipefail
@@ -20,20 +21,20 @@ jobs:
           import cairosvg
           from pathlib import Path
           src=Path('icon.svg').read_text(encoding='utf-8')
-          assert '대기표를 든 귀여운 곰돌이' in src, 'Unexpected source icon; refusing icon update'
+          assert '핑크 하트 아이콘' in src, 'Unexpected heart icon source'
           for filename,size in [('apple-touch-icon-180.png',180),('icon-192.png',192),('icon-512.png',512)]:
               target=Path('icons')/filename
               cairosvg.svg2png(bytestring=src.encode(),write_to=str(target),output_width=size,output_height=size)
               assert target.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')), 'Invalid rendered PNG'
               print(filename,size,target.stat().st_size)
           PY
-      - name: Publish original bear PNG versions
+      - name: Publish matching pink heart PNG icons
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add icons/apple-touch-icon-180.png icons/icon-192.png icons/icon-512.png
           if ! git diff --cached --quiet; then
-            git commit -m "fix: render actual personal Narin bear SVG to home-screen PNG icons"
+            git commit -m "design: update home-screen icons to pink heart"
             git push
           fi
