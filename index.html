@@ -173,9 +173,10 @@ for(const suffix of ['Mine','Current','Remaining'])$(''+pre+suffix).textContent=
 $(''+pre+'Info').textContent=d.status==='not_found'?'순번표에서 등록한 닉네임을 아직 찾지 못했어요.':d.status==='ended'?'방송 종료 · 다음 방송을 기다리는 중':d.status==='waiting'?'정확한 순번 데이터 연결 대기 중':'순번 확인 대기 중';return false;
 }catch(e){$(''+pre+'Info').textContent='순번 서버 통신 실패 · 재시도 예정';return false}}
 async function poll(){if(!running)return;const name=$('nickname').value.trim();if(!name){status('닉네임을 입력해 주세요.');return}const sites=['live','plus'].filter(s=>$(s==='live'?'watchLive':'watchPlus').checked);if(sites.length===0){status('베베픽 또는 플러스 중 하나 이상 선택해 주세요.');return}const results=await Promise.all(sites.map(site=>pollSite(site,name)));status(results.some(Boolean)?'실시간 순번 정보 확인 중 · 15초 간격 조회':'검증된 순번 데이터 연결 대기 중 · 15초 간격 조회',results.some(Boolean));if(running)timer=setTimeout(poll,15000)}
-$('start').onclick=()=>{save();if(!$('nickname').value.trim()){status('닉네임부터 입력해 주세요.');$('nickname').focus();return}running=true;clearTimeout(timer);status('순번 확인을 시작했어요.');poll();syncExistingPush().catch(()=>{})};
-$('stop').onclick=()=>{running=false;clearTimeout(timer);status('순번 조회를 일시정지했어요. 백그라운드 푸시는 계속 등록돼 있어요.')};
+$('start').onclick=()=>{save();if(!$('nickname').value.trim()){status('닉네임부터 입력해 주세요.');$('start').textContent='확인 시작';$('nickname').focus();return}running=true;clearTimeout(timer);$('start').textContent='완료 ✓';status('닉네임 설정 완료 · 순번 자동 확인 중',true);poll();syncExistingPush().catch(()=>{})};
+$('stop').onclick=()=>{running=false;clearTimeout(timer);$('start').textContent='확인 시작';status('순번 조회를 일시정지했어요. 백그라운드 푸시는 계속 등록돼 있어요.')};
 for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])$(k).onchange=()=>{save();syncExistingPush().catch(()=>{})};
+$('nickname').addEventListener('input',()=>{$('start').textContent='확인 시작'});
 $('nickname').onchange=()=>{save();syncExistingPush().catch(()=>{})};
 const PUSH_DEVICE='bebepik.push.device.v1',PUSH_TOKEN='bebepik.push.secret.v1';
 function pushStatus(message){$('pushStatus').textContent=message}
