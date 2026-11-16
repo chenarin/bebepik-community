@@ -36,15 +36,25 @@ Deno.serve(async(req)=>{
       const isRelay=same(req.headers.get('x-community-relay-token')||'',relay);
       if(!isService&&!isRelay)return response({error:'unauthorized'},401);
       const body=await req.json().catch(()=>null),site=body?.site,broadcastId=body?.broadcastId;
-      if(!body||!validSite(site)||typeof broadcastId!=='string'||broadcastId.length<1||broadcastId.length>100||!['active','ended'].includes(body.status)||!Number.isInteger(body.current)||body.current<0||body.current>100000||!Array.isArray(body.entries)||body.entries.length>3000)return response({error:'invalid snapshot'},400);
+      if(!body||!validSite(site)||typeof broadcastId!=='string'||broadcastId.length<1||broadcastId.length>100||!['active','waiting','ended'].includes(body.status)||!Number.isInteger(body.current)||body.current<0||body.current>100000||!Array.isArray(body.entries)||body.entries.length>3000)return response({error:'invalid snapshot'},400);
       if(body.entries.some(e=>!e||(!isRelay&&!safeName(e.nickname))||(isRelay&&!hashPattern.test(e.nicknameHash||''))||!Number.isInteger(e.position)||e.position<1||e.position>100000))return response({error:'invalid queue entry'},400);
       // Relay sends HMAC pseudonyms, not raw customer nicknames. Service-role imports are HMACed here.
       const hashedEntries=await Promise.all(body.entries.map(async e=>({nickname:isRelay?e.nicknameHash.toLowerCase():await identityHash(relay,e.nickname),position:e.position})));
       if(new Set(hashedEntries.map(e=>e.nickname)).size!==hashedEntries.length)return response({error:'duplicate pseudonymous nickname'},400);
       // Only a service-role client or explicitly configured private extension relay can publish verified snapshots.
       const at=new Date().toISOString();
-      if(body.status==='active'){
-        const broadcast=await db.from('community_queue_broadcasts').upsert({site,broadcast_id:broadcastId,first_seen_at:at},{onConflict:'site,broadcast_id',ignoreDuplicates:true});
+      // Never announce a live stream merely because the bridge was installed mid-broadcast.
+      // Only an observed waiting -> active transition or a newer broadcast ID is a start.
+      const prevSnapshot=await db.from('community_queue_snapshots')
+        .select('broadcast_id,status,updated_at').eq('site',site).maybeSingle();
+      if(prevSnapshot.error)return response({error:'previous state unavailable'},503);
+      const prior=prevSnapshot.data;
+      const announceStart=body.status==='active' && !!prior &&
+        (prior.status==='waiting' || (prior.broadcast_id!==broadcastId && prior.status==='active'));
+      if(announceStart){
+        const broadcast=await db.from('community_queue_broadcasts').upsert(
+          {site,broadcast_id:broadcastId,first_seen_at:at},
+          {onConflict:'site,broadcast_id',ignoreDuplicates:true});
         if(broadcast.error)return response({error:'broadcast registration failed'},503);
       }
       const clean=hashedEntries.map(e=>({site,broadcast_id:broadcastId,nickname:e.nickname,position:e.position,updated_at:at}));
