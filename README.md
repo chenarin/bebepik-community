@@ -1,4 +1,4 @@
-# 베베픽 공용 순번 알리미 ♡
+# 베베픽 알리미 ♡
 
 **공용 주소:** https://bebepik.narin.day/  
 **개인용 알리미:** https://queue.narin.day/ — 별개이며 수정하지 않습니다.
