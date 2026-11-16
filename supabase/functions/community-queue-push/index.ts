@@ -1,7 +1,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.49.10';
 import * as webpush from 'jsr:@negrel/webpush@0.5.0';
 
-// Public website uses a device-specific 256-bit bearer token; no account/email required.
+// Public website authenticates each registered device with a 256-bit bearer token.
 const allowedOrigin = 'https://bebepik.narin.day';
 const cors = {
   'Access-Control-Allow-Origin':allowedOrigin,
