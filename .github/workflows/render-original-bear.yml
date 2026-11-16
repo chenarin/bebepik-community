@@ -24,7 +24,7 @@ jobs:
           for filename,size in [('apple-touch-icon-180.png',180),('icon-192.png',192),('icon-512.png',512)]:
               target=Path('icons')/filename
               cairosvg.svg2png(bytestring=src.encode(),write_to=str(target),output_width=size,output_height=size)
-              assert target.read_bytes().startswith(b'\\x89PNG\\r\\n\\x1a\\n'), 'Invalid rendered PNG'
+              assert target.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')), 'Invalid rendered PNG'
               print(filename,size,target.stat().st_size)
           PY
       - name: Publish original bear PNG versions
