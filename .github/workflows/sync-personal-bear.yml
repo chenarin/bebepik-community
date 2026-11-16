@@ -1,0 +1,33 @@
+name: Copy original personal Narin bear icons
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sync-personal-bear.yml'
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact PNG icon files from the existing personal app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p icons
+          for name in apple-touch-icon-180.png icon-192.png icon-512.png; do
+            curl --fail --location --retry 3 --retry-delay 2 --silent --show-error "https://queue.narin.day/icons/$name?v=21" --output "icons/$name"
+            file "icons/$name"
+            test "$(od -An -N8 -tx1 "icons/$name" | tr -d ' \n')" = "89504e470d0a1a0a"
+          done
+      - name: Commit the original personal app icons to public site
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add icons/apple-touch-icon-180.png icons/icon-192.png icons/icon-512.png
+          if ! git diff --cached --quiet; then
+            git commit -m "assets: use exact personal Narin app PNG icons"
+            git push
+          fi
