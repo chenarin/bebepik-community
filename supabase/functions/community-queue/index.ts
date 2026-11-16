@@ -10,7 +10,15 @@ const safeName=n=>typeof n==='string'&&n.trim().length>=1&&n.trim().length<=30&&
 const admin=()=>{const url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');if(!url||!key)throw Error('server not configured');return {key,db:createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})};};
 const same=(a,b)=>{if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0};
 Deno.serve(async(req)=>{
-  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
+  // Explicitly allow the user's unpacked Chrome extension to authenticate its own relay.
+  // Other origins are not granted CORS access; backend authorization still validates the secret.
+  const requestedOrigin=req.headers.get('Origin')||'';
+  const extensionOrigin=/^chrome-extension:\/\/[a-p]{32}$/.test(requestedOrigin);
+  const headers={...cors,
+    'Access-Control-Allow-Origin':extensionOrigin?requestedOrigin:'https://bebepik.narin.day',
+    'Access-Control-Allow-Headers':'Content-Type,apikey,Authorization,X-Community-Relay-Token'};
+  const response=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});
+  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
   // PC browser extension relay uses a separate server-validated secret; its Origin may be chrome-extension://.
   try{
     const {key,db}=admin();
