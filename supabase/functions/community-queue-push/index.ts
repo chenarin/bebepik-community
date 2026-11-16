@@ -29,7 +29,7 @@ function validEndpoint(s){
 function validPushSub(s){return s&&validEndpoint(s.endpoint)&&s.keys&&typeof s.keys==='object'&&typeof s.keys.p256dh==='string'&&/^[A-Za-z0-9_-]{65,120}$/.test(s.keys.p256dh)&&typeof s.keys.auth==='string'&&/^[A-Za-z0-9_-]{16,50}$/.test(s.keys.auth)}
 async function hash(token){const a=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));return Array.from(new Uint8Array(a)).map(x=>x.toString(16).padStart(2,'0')).join('')}
 async function queueIdentityHash(secret,nickname){
-  const normalized=String(nickname||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,'').trim();
+  const normalized=String(nickname||'').normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF]/g,'').replace(/\s+/g,'').trim();
   const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   const sig=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(normalized));
   return Array.from(new Uint8Array(sig),b=>b.toString(16).padStart(2,'0')).join('');
