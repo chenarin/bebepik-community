@@ -73,10 +73,10 @@ async function register(db,input){
 }
 async function test(db,input){
   const own=await ownedDevice(db,input);if(own.error)return json({error:own.error},own.status);
-  const row=own.device;const now=Date.now();
-  if(row.last_test_at&&now-new Date(row.last_test_at).getTime()<30000)return json({error:'시험 알림은 30초 뒤 다시 보낼 수 있어요.'},429);
-  const mark=await db.from('community_queue_devices').update({last_test_at:new Date().toISOString()}).eq('device_id',row.device_id).eq('credential_hash',row.credential_hash);
+  const row=own.device;
+  const mark=await db.rpc('community_queue_claim_test',{p_device:row.device_id,p_hash:row.credential_hash});
   if(mark.error)return json({error:'시험 알림 준비 실패'},503);
+  if(!mark.data)return json({error:'시험 알림은 30초 뒤 다시 보낼 수 있어요.'},429);
   try{await send(db,row,{title:'🧸 베베픽 순번 알리미',body:'화면을 꺼도 받는 푸시 알림이 연결됐어요! 💗',tag:'bebepik-test'});return json({ok:true,sent:true})}
   catch(e){console.error('push-test-failed',e?.response?.status||String(e).slice(0,120));return json({error:'푸시 발송에 실패했어요. 휴대폰 알림 권한을 확인해 주세요.'},502)}
 }
