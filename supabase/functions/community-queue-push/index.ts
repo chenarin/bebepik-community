@@ -28,6 +28,12 @@ function validEndpoint(s){
 }
 function validPushSub(s){return s&&validEndpoint(s.endpoint)&&s.keys&&typeof s.keys==='object'&&typeof s.keys.p256dh==='string'&&/^[A-Za-z0-9_-]{65,120}$/.test(s.keys.p256dh)&&typeof s.keys.auth==='string'&&/^[A-Za-z0-9_-]{16,50}$/.test(s.keys.auth)}
 async function hash(token){const a=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));return Array.from(new Uint8Array(a)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function queueIdentityHash(secret,nickname){
+  const normalized=String(nickname||'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,'').trim();
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(normalized));
+  return Array.from(new Uint8Array(sig),b=>b.toString(16).padStart(2,'0')).join('');
+}
 function fixedEq(a,b){if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let x=0;for(let i=0;i<a.length;i++)x|=a.charCodeAt(i)^b.charCodeAt(i);return x===0}
 async function webpushConfig(db){const r=await db.rpc('community_webpush_credentials');if(r.error||!r.data?.publicKey||!r.data?.privateKey)throw Error('VAPID is not configured');return r.data}
 function b64bytes(value){const b64=value.replace(/-/g,'+').replace(/_/g,'/');const bin=atob(b64+'='.repeat((4-b64.length%4)%4));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
@@ -92,7 +98,11 @@ async function dispatch(db,input){
   const firstSeen=br.data?.first_seen_at;const canBroadcast=!!firstSeen&&Date.now()-new Date(firstSeen).getTime()<180000;
   const entries=await db.from('community_queue_entries').select('nickname,position').eq('site',site).eq('broadcast_id',broadcastId).limit(10000);
   if(entries.error)return json({error:'queue entries unavailable'},503);
-  const positions=new Map();for(const row of entries.data||[])if(!positions.has(canonical(row.nickname)))positions.set(canonical(row.nickname),row.position);
+  // Customer names are stored as keyed HMAC pseudonyms, never in plaintext.
+  const keyResult=await db.rpc('community_queue_relay_key');
+  if(keyResult.error||!keyResult.data)return json({error:'relay HMAC unavailable'},503);
+  const secret=keyResult.data;
+  const positions=new Map();for(const row of entries.data||[])if(!positions.has(row.nickname))positions.set(row.nickname,row.position);
   const key=site==='live'?'watch_live':'watch_plus';let count=0,sent=0,skipped=0,failed=0;const siteLabel=site==='live'?'베베픽':'베베픽 플러스';
   for(let offset=0;offset<10000;offset+=100){
     const page=await db.from('community_queue_devices').select('device_id,nickname,notify_broadcast,notify_three,notify_one,notify_turn,push_endpoint,p256dh,auth_key,created_at').eq(key,true).order('device_id').range(offset,offset+99);
@@ -102,7 +112,7 @@ async function dispatch(db,input){
       count++;
       const actions=[];
       if(canBroadcast&&row.notify_broadcast&&new Date(row.created_at).getTime()<=new Date(firstSeen).getTime())actions.push(['broadcast',{title:'🔴 '+siteLabel+' 방송 시작!',body:'방송이 시작됐어요. 순번표를 확인해 주세요.',tag:'bebepik-'+site+'-'+broadcastId+'-broadcast'}]);
-      const pos=positions.get(canonical(row.nickname));if(Number.isInteger(pos)){
+      const pos=positions.get(await queueIdentityHash(secret,row.nickname));if(Number.isInteger(pos)){
         const remaining=pos-state.current_position;
         if(remaining<=0&&remaining>=-4&&row.notify_turn)actions.push(['turn',{title:'🎉 '+siteLabel+' 내 차례!',body:'순번표에서 바로 내 차례를 확인해 주세요.',tag:'bebepik-'+site+'-'+broadcastId+'-turn'}]);
         else if(remaining===1&&row.notify_one)actions.push(['one',{title:'⏰ '+siteLabel+' 바로 전 차례!',body:'앞에 1명 남았어요. 준비해 주세요!',tag:'bebepik-'+site+'-'+broadcastId+'-one'}]);
