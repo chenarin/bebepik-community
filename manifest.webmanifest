@@ -1,6 +1,6 @@
 {
-  "name": "베베픽 순번 알리미",
-  "short_name": "베베픽 순번",
+  "name": "베베픽 알리미",
+  "short_name": "베베픽 알리미",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
