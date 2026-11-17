@@ -164,7 +164,7 @@ for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])$(k).c
 function status(message,ok=false){$('status').textContent=message;$('status').className='status'+(ok?' ok':'')}
 function save(){localStorage.setItem(keys.nickname,$('nickname').value.trim());for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])localStorage.setItem(keys[k],String($(k).checked))}
 const label={live:'베베픽',plus:'베베픽 플러스'};
-async function showNotification(title,body,tag){if(localStorage.getItem('bebepik.push.device.v1'))return;if(!('Notification' in window)||Notification.permission!=='granted')return;try{const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,tag,icon:'/icons/icon-192.png?v=5',badge:'/icons/notification-bear-96.png?v=1'})}catch{}}
+async function showNotification(title,body,tag){if(localStorage.getItem('bebepik.push.device.v1'))return;if(!('Notification' in window)||Notification.permission!=='granted')return;try{const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,tag,icon:'/icons/icon-192.png?v=5',badge:'/icons/notification-bear-v2.png?v=2',data:{url:'/?panel=queue'}})}catch{}}
 function alertOnce(type,site,broadcastId,remaining){const key=once+[type,site,broadcastId,$('nickname').value.trim()].join(':');if(localStorage.getItem(key))return;localStorage.setItem(key,'1');const nm=label[site];if(type==='three')showNotification('🔔 '+nm+' 3명 전!','앞에 '+remaining+'명 남았어요.',key);if(type==='one')showNotification('⏰ '+nm+' 바로 전 차례!','앞에 1명 남았어요.',key);if(type==='turn')showNotification('🎉 '+nm+' 내 차례!','순번표를 확인해 주세요.',key)}
 async function pollSite(site,nickname){const pre=site==='live'?'live':'plus';let r;
 try{r=await fetch(API+'?site='+site+'&nickname='+encodeURIComponent(nickname),{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('서버 응답 '+r.status);const d=await r.json();$(''+pre+'Checked').textContent='마지막 확인: '+new Date().toLocaleTimeString('ko-KR');
@@ -208,7 +208,7 @@ async function ensurePushRegistration(askPermission){
     if(result!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
   }
   if(Notification.permission!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
-  const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+  const reg=await navigator.serviceWorker.register('/sw.js?v=8',{scope:'/',updateViaCache:'none'});
   await navigator.serviceWorker.ready;
   let sub=await reg.pushManager.getSubscription();
   if(!sub){
@@ -240,7 +240,12 @@ $('testPush').onclick=async()=>{
   finally{b.disabled=false}
 };
 $('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js?v=6').catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js?v=8',{scope:'/',updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&running){clearTimeout(timer);poll()}});
+function showOpenedNotification(){
+  if(new URLSearchParams(location.search).get('panel')!=='queue')return;
+  requestAnimationFrame(()=>{$('queue-title')?.scrollIntoView({block:'start',behavior:'instant'})});
+}
+window.addEventListener('pageshow',showOpenedNotification);
 if($('nickname').value.trim()){$('start').click()} })();</script>
 </body></html>
