@@ -73,6 +73,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid
 .actions button{border:0;border-radius:10px;padding:11px 14px;font-size:13px;min-height:43px;font-weight:700;flex:1}
 .actions #notify{background:#b57792;color:#fff;flex-basis:100%}
 .actions #testPush{background:#f6f3f6;color:#8d647d}
+.actions #testIcon{background:#f0f7f4;color:#407c60}
 .actions #disablePush{background:#f4f6f8;color:#8a94a1}
 details{font-size:12px;color:#748293}
 summary{cursor:pointer;font-size:13px;font-weight:700;color:#637082}
@@ -143,6 +144,7 @@ details p{line-height:1.8;margin:11px 0 0}
 <div class="actions">
 <button id="notify">푸시 알림 등록</button>
 <button id="testPush">시험 알림 보내기</button>
+<button id="testIcon" type="button">🐻 곰돌이 아이콘 테스트</button>
 <button id="disablePush">등록 해제</button>
 </div>
 <p class="status" id="pushStatus" role="status">이미 알림을 허용했다면 시험 알림 버튼만 눌러도 연결 상태를 확인해요.</p>
@@ -170,7 +172,7 @@ for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])$(k).c
 function status(message,ok=false){$('status').textContent=message;$('status').className='status'+(ok?' ok':'')}
 function save(){localStorage.setItem(keys.nickname,$('nickname').value.trim());for(const k of ['three','one','turn','broadcast','watchLive','watchPlus'])localStorage.setItem(keys[k],String($(k).checked))}
 const label={live:'베베픽',plus:'베베픽 플러스'};
-async function showNotification(title,body,tag){if(localStorage.getItem('bebepik.push.device.v1'))return;if(!('Notification' in window)||Notification.permission!=='granted')return;try{const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,tag,icon:'/icons/icon-192.png?v=5',badge:'/icons/notification-bear-v3.png?v=3',data:{url:'/?panel=queue'}})}catch{}}
+async function showNotification(title,body,tag){if(localStorage.getItem('bebepik.push.device.v1'))return;if(!('Notification' in window)||Notification.permission!=='granted')return;try{const reg=await navigator.serviceWorker.ready;await reg.showNotification(title,{body,tag,icon:'/icons/notification-bear-icon-v4.png?v=4',badge:'/icons/notification-bear-v4.png?v=4',data:{url:'/?panel=queue'}})}catch{}}
 function alertOnce(type,site,broadcastId,remaining){const key=once+[type,site,broadcastId,$('nickname').value.trim()].join(':');if(localStorage.getItem(key))return;localStorage.setItem(key,'1');const nm=label[site];if(type==='three')showNotification('🔔 '+nm+' 3명 전!','앞에 '+remaining+'명 남았어요.',key);if(type==='one')showNotification('⏰ '+nm+' 바로 전 차례!','앞에 1명 남았어요.',key);if(type==='turn')showNotification('🎉 '+nm+' 내 차례!','순번표를 확인해 주세요.',key)}
 async function pollSite(site,nickname){const pre=site==='live'?'live':'plus';let r;
 try{r=await fetch(API+'?site='+site+'&nickname='+encodeURIComponent(nickname),{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('서버 응답 '+r.status);const d=await r.json();$(''+pre+'Checked').textContent='마지막 확인: '+new Date().toLocaleTimeString('ko-KR');
@@ -228,7 +230,7 @@ async function ensurePushRegistration(askPermission){
     if(result!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
   }
   if(Notification.permission!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
-  const reg=await navigator.serviceWorker.register('/sw.js?v=10',{scope:'/',updateViaCache:'none'});
+  const reg=await navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'});
   await navigator.serviceWorker.ready;
   let sub=await reg.pushManager.getSubscription();
   if(!sub){
@@ -259,6 +261,33 @@ $('testPush').onclick=async()=>{
   }catch(e){pushStatus('⚠️ '+explainPushError(e))}
   finally{b.disabled=false}
 };
+$('testIcon').onclick=async()=>{
+  const button=$('testIcon');
+  button.disabled=true;
+  pushStatus('🐻 이 브라우저에서 곰돌이 아이콘을 확인하고 있어요…');
+  try{
+    if(!('Notification' in window)||!('serviceWorker' in navigator))throw Error('이 브라우저는 웹 알림을 지원하지 않아요.');
+    if(Notification.permission!=='granted'){
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted')throw Error('알림 권한을 허용해야 시험 알림을 보낼 수 있어요.');
+    }
+    const reg=await navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'});
+    await reg.update();
+    await navigator.serviceWorker.ready;
+    await reg.showNotification('🐻 베베픽 곰돌이 아이콘 테스트',{
+      body:'상단 상태바의 곰돌이 얼굴을 확인한 뒤 알림을 눌러 주세요.',
+      icon:'/icons/notification-bear-icon-v4.png?v=4',
+      badge:'/icons/notification-bear-v4.png?v=4',
+      tag:'bebepik-bear-icon-v4',
+      renotify:true,
+      data:{url:'/?panel=queue'}
+    });
+    const browser=isSamsungInternet?'삼성 인터넷':(/Chrome\//.test(navigator.userAgent)?'크롬':'현재 브라우저');
+    pushStatus('✅ '+browser+'에서 곰돌이 시험 알림을 표시했어요. 기존 알림이 아니라 방금 도착한 새 알림 아이콘을 확인해 주세요.');
+  }catch(e){
+    pushStatus('⚠️ 곰돌이 아이콘 테스트 실패: '+explainPushError(e));
+  }finally{button.disabled=false}
+};
 $('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message',event=>{
@@ -269,7 +298,7 @@ if('serviceWorker' in navigator){
       window.matchMedia('(display-mode: minimal-ui)').matches;
     event.ports?.[0]?.postMessage({mode:standalone?'standalone':'browser'});
   });
-  navigator.serviceWorker.register('/sw.js?v=10',{scope:'/',updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+  navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&running){clearTimeout(timer);poll()}});
 function showOpenedNotification(){
