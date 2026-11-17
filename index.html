@@ -316,28 +316,18 @@ $('testPush').onclick=async()=>{
 $('testIcon').onclick=async()=>{
   const button=$('testIcon');
   button.disabled=true;
-  pushStatus('🐻 이 브라우저에서 곰돌이 아이콘을 확인하고 있어요…');
+  pushStatus('🐻 실제 푸시 경로로 곰돌이 알림을 시험하는 중…');
   try{
-    if(!('Notification' in window)||!('serviceWorker' in navigator))throw Error('이 브라우저는 웹 알림을 지원하지 않아요.');
-    if(Notification.permission!=='granted'){
-      const permission=await Notification.requestPermission();
-      if(permission!=='granted')throw Error('알림 권한을 허용해야 시험 알림을 보낼 수 있어요.');
-    }
-    const reg=await navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'});
-    await reg.update();
-    await navigator.serviceWorker.ready;
-    await reg.showNotification('🐻 베베픽 곰돌이 아이콘 테스트',{
-      body:'상단 상태바의 곰돌이 얼굴을 확인한 뒤 알림을 눌러 주세요.',
-      icon:'/icons/notification-bear-icon-v4.png?v=4',
-      badge:'/icons/notification-bear-v4.png?v=4',
-      tag:'bebepik-bear-icon-v4',
-      renotify:true,
-      data:{url:'/?panel=queue'}
-    });
+    // Samsung Internet may not display page-triggered notifications.
+    // Use the SAME real Web Push path as broadcast/queue alerts instead.
+    const ready=await ensurePushRegistration(true);
+    if(!ready)return;
+    const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};
+    await pushRequest({action:'test',...cred});
     const browser=isSamsungInternet?'삼성 인터넷':(/Chrome\//.test(navigator.userAgent)?'크롬':'현재 브라우저');
-    pushStatus('✅ '+browser+'에서 곰돌이 시험 알림을 표시했어요. 기존 알림이 아니라 방금 도착한 새 알림 아이콘을 확인해 주세요.');
+    pushStatus('✅ '+browser+'으로 실제 서버 푸시 시험 알림을 요청했어요. 알림이 도착하면 상태바의 곰돌이 아이콘을 확인해 주세요.');
   }catch(e){
-    pushStatus('⚠️ 곰돌이 아이콘 테스트 실패: '+explainPushError(e));
+    pushStatus('⚠️ 곰돌이 푸시 테스트 실패: '+explainPushError(e));
   }finally{button.disabled=false}
 };
 $('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
