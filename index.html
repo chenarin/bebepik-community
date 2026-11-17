@@ -152,7 +152,7 @@ details p{line-height:1.8;margin:11px 0 0}
 </section>
 <section class="panel">
 <details><summary>휴대폰별 알림 설정 방법</summary>
-<p>아이폰은 Safari에서 사이트를 홈 화면에 추가한 뒤, 홈 화면에서 연 앱에서 푸시를 등록해 주세요. 갤럭시는 삼성 인터넷 앱에서 이 사이트를 직접 열고 푸시를 등록해 주세요. 크롬에 등록된 푸시는 삼성 인터넷으로 자동 이전되지 않아요.</p>
+<p>아이폰은 Safari에서 사이트를 홈 화면에 추가한 뒤, 홈 화면에서 연 앱에서 푸시를 등록해 주세요. 갤럭시는 삼성 인터넷 일반 모드에서 사이트를 직접 열고 푸시를 등록해 주세요. 삼성 인터넷 시크릿 모드에서는 웹 푸시 알림이 작동하지 않아요. 크롬에 등록된 푸시는 삼성 인터넷으로 자동 이전되지 않아요.</p>
 <p class="fine">실제 방송 및 순번 알림은 PC에서 검증된 방송 데이터가 연결되어야 발송돼요.</p>
 </details>
 </section>
@@ -202,6 +202,7 @@ if(isGalaxyAndroid){
   }
 }
 function pushStatus(message){$('pushStatus').textContent=message}
+function pushConnected(connected){$('notify').textContent=connected?'연결됨 ✓ · 설정 갱신':'푸시 알림 등록'}
 function explainPushError(error){const message=String(error?.message||error||'알림 등록 실패');if(isSamsungInternet && /not supported|notsupported|applicationserverkey|vapid|permission|subscribe|push service/i.test(message))return '삼성 인터넷에서 푸시 구독에 실패했어요. 브라우저 최신 버전과 삼성 인터넷 알림 권한을 확인해 주세요. 사용 중인 버전에서 VAPID 구독을 지원하지 않는 경우에는 이 방식으로 등록할 수 없어요. ('+message+')';return message}
 function b64url(bytes){let binary='';bytes.forEach(x=>binary+=String.fromCharCode(x));return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'')}
 function keyBuffer(value){const bin=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
@@ -222,7 +223,7 @@ async function ensurePushRegistration(askPermission){
   const prefs=pushPrefs();
   if(!prefs.nickname){pushStatus('⚠️ 순번표 닉네임을 먼저 입력해 주세요.');$('nickname').focus();return false}
   if(isIosBrowserNotInstalled()){pushStatus('⚠️ '+permissionMessage());return false}
-  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){pushStatus('⚠️ '+permissionMessage());return false}
+  if(!('serviceWorker' in navigator)||!('Notification' in window)){pushStatus('⚠️ '+permissionMessage());return false}
   if(!window.isSecureContext){pushStatus('⚠️ HTTPS 연결이 필요해요.');return false}
   if(Notification.permission==='denied'){pushStatus('⚠️ '+permissionMessage());return false}
   // 이미 권한을 허용한 경우에는 OS 팝업을 다시 요청하지 않는다.
@@ -233,6 +234,7 @@ async function ensurePushRegistration(askPermission){
   if(Notification.permission!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
   const reg=await navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'});
   await navigator.serviceWorker.ready;
+  if(!reg.pushManager||typeof reg.pushManager.getSubscription!=='function')throw Error('이 브라우저에서는 푸시 구독 API를 사용할 수 없어요. 삼성 인터넷 버전을 확인해 주세요.');
   let sub=await reg.pushManager.getSubscription();
   if(!sub){
     const cfg=await fetch(PUSH_API,{cache:'no-store'}).then(r=>r.json());
@@ -242,6 +244,7 @@ async function ensurePushRegistration(askPermission){
   const cred=deviceCredentials();
   await pushRequest({action:'register',...cred,...prefs,subscription:sub.toJSON()});
   localStorage.setItem(keys.nickname,prefs.nickname);
+  pushConnected(true);
   pushStatus(isSamsungInternet?'✅ 삼성 인터넷 푸시 등록 완료! 시험 알림을 눌러 순번 화면이 열리는지 확인해 주세요.':'✅ 이 브라우저의 푸시 알림 연결 확인 완료! 시험 알림을 보내볼 수 있어요.');
   return true;
 }
@@ -250,21 +253,24 @@ let pushStatusCheckedAt=0;
 // A page refresh does not mean push permission was revoked. Inspect each
 // independent part (OS permission, PushSubscription, stored device credentials).
 async function checkPersistedPushConnection(){
-  if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){
+  if(!('Notification' in window)||!('serviceWorker' in navigator)){
     pushStatus('⚠️ 이 브라우저에서는 웹 푸시를 사용할 수 없어요. 브라우저 지원 여부와 버전을 확인해 주세요.');
     return;
   }
   if(Notification.permission==='denied'){
+    pushConnected(false);
     pushStatus('⚠️ 브라우저에서 사이트 알림이 차단돼 있어요. 삼성 인터넷의 사이트 알림 권한을 허용한 후 다시 확인해 주세요.');
     return;
   }
   if(Notification.permission!=='granted'){
+    pushConnected(false);
     pushStatus('⚠️ 이 브라우저의 사이트 알림 권한이 허용되지 않았어요. 권한이 해제된 경우에는 푸시 알림 등록을 다시 눌러야 해요.');
     return;
   }
   const id=localStorage.getItem(PUSH_DEVICE),token=localStorage.getItem(PUSH_TOKEN);
   const nickname=$('nickname').value.trim();
   const reg=await navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'});
+  if(!reg.pushManager||typeof reg.pushManager.getSubscription!=='function')throw Error('브라우저 푸시 기능이 비활성화되어 있어요. 삼성 인터넷을 업데이트해 주세요.');
   const sub=await reg.pushManager.getSubscription();
   if(!id||!token){
     pushStatus(sub
@@ -279,6 +285,7 @@ async function checkPersistedPushConnection(){
   if(sub)pushStatus('✅ 이 브라우저의 푸시 권한과 구독이 유지 중이에요. 서버 연결을 확인하고 있어요…');
   else pushStatus('🔄 알림 권한은 유지되어 있어요. 누락된 푸시 구독을 자동 복구하는 중…');
   await ensurePushRegistration(false);
+  pushConnected(true);
   pushStatus(isSamsungInternet
     ? '✅ 삼성 인터넷 알림 연결 유지 확인 완료! 새로고침 후에도 다시 등록할 필요 없어요.'
     : '✅ 이 브라우저의 알림 연결이 유지되고 있어요.');
@@ -330,7 +337,7 @@ $('testIcon').onclick=async()=>{
     pushStatus('⚠️ 곰돌이 푸시 테스트 실패: '+explainPushError(e));
   }finally{button.disabled=false}
 };
-$('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
+$('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushConnected(false);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message',event=>{
     if(event.data?.type!=='BEBEPIK_QUERY_VIEW_MODE')return;
