@@ -208,7 +208,7 @@ async function ensurePushRegistration(askPermission){
     if(result!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
   }
   if(Notification.permission!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
-  const reg=await navigator.serviceWorker.register('/sw.js?v=9',{scope:'/',updateViaCache:'none'});
+  const reg=await navigator.serviceWorker.register('/sw.js?v=10',{scope:'/',updateViaCache:'none'});
   await navigator.serviceWorker.ready;
   let sub=await reg.pushManager.getSubscription();
   if(!sub){
@@ -240,7 +240,17 @@ $('testPush').onclick=async()=>{
   finally{b.disabled=false}
 };
 $('disablePush').onclick=async()=>{const cred={deviceId:localStorage.getItem(PUSH_DEVICE),token:localStorage.getItem(PUSH_TOKEN)};if(!cred.deviceId||!cred.token){pushStatus('등록된 푸시가 없어요.');return}try{await pushRequest({action:'unregister',...cred});const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();localStorage.removeItem(PUSH_DEVICE);localStorage.removeItem(PUSH_TOKEN);pushStatus('🔕 이 휴대폰의 푸시 등록을 해제했어요.')}catch(e){pushStatus('⚠️ '+(e.message||e))}};
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js?v=9',{scope:'/',updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message',event=>{
+    if(event.data?.type!=='BEBEPIK_QUERY_VIEW_MODE')return;
+    const standalone=window.navigator.standalone===true||
+      window.matchMedia('(display-mode: standalone)').matches||
+      window.matchMedia('(display-mode: fullscreen)').matches||
+      window.matchMedia('(display-mode: minimal-ui)').matches;
+    event.ports?.[0]?.postMessage({mode:standalone?'standalone':'browser'});
+  });
+  navigator.serviceWorker.register('/sw.js?v=10',{scope:'/',updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});
+}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&running){clearTimeout(timer);poll()}});
 function showOpenedNotification(){
   if(new URLSearchParams(location.search).get('panel')!=='queue')return;
