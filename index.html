@@ -84,6 +84,15 @@ details p{line-height:1.8;margin:11px 0 0}
 .creator-signature{display:block;width:158px;height:auto;max-width:50%;margin:8px auto 0;opacity:.92}
 @media(max-width:360px){.wrap{padding:18px 12px 32px}.panel{padding:16px}.queue{padding:12px}.brand h1{font-size:21px}.number strong{font-size:24px}.profile-control{gap:6px}.btn{padding:10px 11px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.broadcast-live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.broadcast-channel{display:flex;flex-direction:column;gap:9px;min-width:0;background:#fff8fc;border:1px solid #f2e3ec;border-radius:12px;padding:12px}
+.broadcast-channel:nth-child(even){background:#f4faff;border-color:#e4eefa}
+.broadcast-name{font-size:12px;color:#6f566b;line-height:1.45;word-break:keep-all}
+.broadcast-badge{font-size:11px;color:#8b94a4;font-weight:750}
+.broadcast-badge.active{color:#c64d76}.broadcast-badge.waiting{color:#a06e8a}
+.broadcast-channel a{font-size:11px;color:#a05f81;font-weight:720;text-decoration:underline;text-underline-offset:3px}
+.broadcast-help{margin:11px 0 0;font-size:11px;color:#8c94a2;line-height:1.65}
+@media(max-width:360px){.broadcast-live-grid{gap:6px}.broadcast-channel{padding:10px 8px}}
 </style>
 </head>
 <body>
@@ -120,6 +129,13 @@ details p{line-height:1.8;margin:11px 0 0}
 </article>
 </div>
 <p class="status" id="status" role="status">닉네임을 입력하고 확인을 시작해 주세요.</p>
+</section>
+<section class="panel" id="broadcast-panel" aria-labelledby="broadcast-title">
+<div class="section-header"><h2 id="broadcast-title">♡ 지금 방송 중인가요?</h2><span class="helper">유튜브 4개 채널</span></div>
+<p class="setting-subtitle">베베픽 방송 알리미와 연결해 생방송 시작 소식을 알려드려요.</p>
+<div id="broadcastChannelList" class="broadcast-live-grid" aria-live="polite"></div>
+<p class="broadcast-help" id="broadcastStatusAt">방송 상태를 확인하고 있어요.</p>
+<p class="broadcast-help">방송 시작 푸시는 아래에서 <strong>방송 시작</strong>을 체크하고 푸시 알림을 등록하면 받아볼 수 있어요. 기존 순번 설정은 그대로 유지돼요.</p>
 </section>
 <section class="panel" aria-labelledby="settings-title">
 <div class="section-header"><h2 id="settings-title">알림 설정</h2><span class="helper">변경 시 자동 저장</span></div>
@@ -232,7 +248,7 @@ async function ensurePushRegistration(askPermission){
     if(result!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
   }
   if(Notification.permission!=='granted'){pushStatus('⚠️ '+permissionMessage());return false}
-  const reg=await navigator.serviceWorker.register('/sw.js?v=12',{scope:'/',updateViaCache:'none'});
+  const reg=await navigator.serviceWorker.register('/sw.js?v=13',{scope:'/',updateViaCache:'none'});
   await navigator.serviceWorker.ready;
   if(!reg.pushManager||typeof reg.pushManager.getSubscription!=='function')throw Error('이 브라우저에서는 푸시 구독 API를 사용할 수 없어요. 삼성 인터넷 버전을 확인해 주세요.');
   let sub=await reg.pushManager.getSubscription();
@@ -358,4 +374,5 @@ window.addEventListener('pageshow',showOpenedNotification);
 if($('nickname').value.trim()){$('start').click()}
 else syncExistingPush().catch(()=>{});
 })()</script>
+<script src="/broadcast-live.js?v=1" defer></script>
 </body></html>
